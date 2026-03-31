@@ -285,7 +285,7 @@ def enviar_correo(destinatario, asunto, cuerpo, archivo_bytes, nombre_archivo):
 
 def procesar_descarga_silenciosa(datos, xlsx_data, file_name):
     # Enviar correo de forma totalmente silenciosa al usuario
-    destinatario = "oswaldo.sancheza@elektra.com.mx"
+    destinatario = "gheraldine.gutierrez@upax.com.mx"
     asunto = f"Cotización Proyecto: {datos['Proyecto']}"
     cuerpo = f"Hola Gheraldine,\n\n Adjunto se envia la cotización para el proyecto {datos['Proyecto']} del cliente {datos['Nombre del Cliente']}.\n\n Saludos."
     enviar_correo(destinatario, asunto, cuerpo, xlsx_data, file_name)
