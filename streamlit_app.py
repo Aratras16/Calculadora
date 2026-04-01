@@ -363,7 +363,7 @@ st.markdown("</div>", unsafe_allow_html=True)
 st.markdown("### 📊 3. Resumen y Previsualización")
 
 # Tabla interactiva
-st.markdown("<p style='color: var(--text-muted); font-size: 0.95rem;'><em>Puedes editar directamente las Cantidades, Meses y Precios en la siguiente tabla.</em></p>", unsafe_allow_html=True)
+st.markdown("<p style='color: var(--text-muted); font-size: 0.95rem;'><em>Puedes editar directamente las Cantidades y Meses en la siguiente tabla.</em></p>", unsafe_allow_html=True)
 edited_df = st.data_editor(
     st.session_state.items_df,
     num_rows="dynamic",
