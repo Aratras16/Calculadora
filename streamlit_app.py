@@ -318,7 +318,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 # =========================
 st.markdown("### 👥 2. Asignación de Recursos")
 
-st.markdown("<div style='background-color:#FFFFFF; padding:2rem; border-radius:12px; border: 1px solid #E2E8F0; margin-bottom: 2rem;'>", unsafe_allow_html=True)
+#st.markdown("<div style='background-color:#FFFFFF; padding:2rem; border-radius:12px; border: 1px solid #E2E8F0; margin-bottom: 2rem;'>", unsafe_allow_html=True)
 colA, colB, colC = st.columns([1.5, 1, 1], gap="medium")
 
 with colA:
@@ -404,7 +404,7 @@ html_cards = f"""
 """
 st.markdown(html_cards, unsafe_allow_html=True)
 
-st.success(f"**Rango Estratégico Sugerido:** La cotización debe posicionarse idealmente entre \${totales['Subtotal 25%']:,.2f} y \${totales['Subtotal 30%']:,.2f}.", icon="💡")
+#st.success(f"**Rango Estratégico Sugerido:** La cotización debe posicionarse idealmente entre \${totales['Subtotal 25%']:,.2f} y \${totales['Subtotal 30%']:,.2f}.", icon="💡")
 st.warning(f"**⚠️ Regla de Negocio:** El total de la cotización no debe ser menor  (\${totales['Subtotal 22%']:,.2f}) (22% margen de contribucion) ni mayor (\${totales['Subtotal 30%']:,.2f}) (30% margen de contribucion)", icon="🚨")
 
 st.markdown("<br>", unsafe_allow_html=True)
