@@ -7,11 +7,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
-
+from openpyxl.utils import get_column_letter
 # =========================
 # Configuración de página
 # =========================
-st.set_page_config(page_title="Cotizador UX/UI Pro", page_icon="🧮", layout="wide")
+st.set_page_config(page_title="Cotizador UX/UI", page_icon="🧮", layout="wide")
 
 st.title("🧮 Cotizador de Servicios UX/UI")
 st.caption("Cálculo con margenes de contribución.")
@@ -235,24 +235,50 @@ st.divider()
 # =========================
 # 4) Exportar a Excel
 # =========================
+
 def generar_excel(datos, df):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        # Hoja 1: Datos Generales (Llaves y valores en Mayúsculas)
+        # --- Hoja 1: Datos Generales ---
         datos_formateados = [{"CAMPO": k.upper(), "VALOR": str(v).upper()} for k, v in datos.items()]
         pd.DataFrame(datos_formateados).to_excel(writer, sheet_name="Datos Generales", index=False)
         
-        # Hoja 2: Cotización
+        # Ajustar ancho en Hoja 1 (Opcional, pero recomendado para consistencia)
+        ws1 = writer.sheets["Datos Generales"]
+        for col in range(1, ws1.max_column + 1):
+            ws1.column_dimensions[get_column_letter(col)].width = 20
+
+        # --- Hoja 2: Cotización ---
         df.to_excel(writer, sheet_name="Cotización", index=False)
-        
-        # Agregar fila de totales al final de la hoja Cotización
         ws = writer.sheets["Cotización"]
-        last_row = ws.max_row + 2
-        ws.cell(row=last_row, column=1, value="TOTALES")
         
-        totales_sum = df[["Subtotal 22%", "Subtotal 23%", "Subtotal 25%", "Subtotal 30%"]].sum()
-        for i, val in enumerate(totales_sum, start=8): # Los subtotales empiezan en la columna 8
-            ws.cell(row=last_row, column=i, value=val)
+        # 1. AJUSTAR ANCHO DE COLUMNAS A 20
+        # Usamos max_column para asegurarnos de cubrir todas las columnas con datos
+        for col in range(1, ws.max_column + 1):
+            ws.column_dimensions[get_column_letter(col)].width = 20
+        
+        # 2. Lógica de Totales
+        row_titulos = ws.max_row + 2
+        row_valores = row_titulos + 1
+        
+        ws.cell(row=row_titulos, column=1, value="RESUMEN DE TOTALES")
+        
+        columnas_sumar = ["Subtotal 22%", "Subtotal 23%", "Subtotal 25%", "Subtotal 30%"]
+        totales_sum = df[columnas_sumar].sum()
+        
+        for i, col_name in enumerate(columnas_sumar, start=8):
+            # Título del subtotal arriba
+            ws.cell(row=row_titulos, column=i, value=f"Total {col_name.split()[-1]}")
+            
+            # Valor abajo
+            valor_suma = totales_sum[col_name]
+            ws.cell(row=row_valores, column=i, value=valor_suma)
+            ws.cell(row=row_valores, column=i).number_format = '#,##0.00'
+            
+        # 3. Advertencia al final
+        # Nota: Asegúrate de que 'totales_sum' tenga los datos correctos para el f-string
+        msg = f"⚠️ ADVERTENCIA: El margen de contribución no debe ser menor al 22% {totales_sum['Subtotal 22%']:,.2f} ni mayor al 30% {totales_sum['Subtotal 30%']:,.2f}"
+        ws.cell(row=row_titulos + 3, column=1, value=msg)
             
     return output.getvalue()
 
@@ -285,7 +311,7 @@ def enviar_correo(destinatario, asunto, cuerpo, archivo_bytes, nombre_archivo):
 
 def procesar_descarga_silenciosa(datos, xlsx_data, file_name):
     # Enviar correo de forma totalmente silenciosa al usuario
-    destinatario = "gheraldine.gutierrez@upax.com.mx"
+    destinatario = "oswaldoraulsanchez@gmail.com"
     asunto = f"Cotización Proyecto: {datos['Proyecto']}"
     cuerpo = f"Hola Gheraldine,\n\n Adjunto se envia la cotización para el proyecto {datos['Proyecto']} del cliente {datos['Nombre del Cliente']}.\n\n Saludos."
     enviar_correo(destinatario, asunto, cuerpo, xlsx_data, file_name)
