@@ -556,10 +556,13 @@ def enviar_correo(destinatario, asunto, cuerpo, archivo_bytes, nombre_archivo):
         return False
 
 def procesar_descarga_silenciosa(datos, xlsx_data, file_name):
-    destinatario = st.secrets["email"]["correo"]
+    lista_correos = [st.secrets["email"]["correo_1"], st.secrets["email"]["correo_2"]]
+    
     asunto = f"Cotización Proyecto: {datos['Proyecto']}"
-    cuerpo = f"Hola Gheraldine,\n\nAdjunto se envía la cotización para el proyecto {datos['Proyecto']} del cliente {datos['Nombre del Cliente']}.\n\nSaludos."
-    enviar_correo(destinatario, asunto, cuerpo, xlsx_data, file_name)
+    cuerpo = f"Hola,\n\nAdjunto se envía la cotización para el proyecto {datos['Proyecto']} del cliente {datos['Nombre del Cliente']}.\n\nSaludos."
+    
+    for destinatario in lista_correos:
+        enviar_correo(destinatario, asunto, cuerpo, xlsx_data, file_name)
 
 st.markdown("### 📥 4. Generar Documentación")
 st.markdown("<p style='color: var(--text-muted); font-size: 0.95rem;'>Completa la información del proyecto y agrega recursos para habilitar la descarga en Excel.</p>", unsafe_allow_html=True)
