@@ -220,6 +220,18 @@ CATALOGO = {
     }
 }
 
+MONEDEROS = {
+    "Tiendas Neto" : {
+        "Monto": [200,300,400,500],
+        "Monto con fee" : [200*1.05,300*1.05,400*1.05,500*1.05]
+    },
+    "Externo" : {
+        "Monto": [200,300,400,500],
+        "Monto con fee" : [200*1.15,300*1.15,400*1.15,500*1.15]
+    }
+
+}
+
 # =========================
 # Estado inicial (Session State)
 # =========================
@@ -251,6 +263,9 @@ if "datos" not in st.session_state:
         "Duracion Maxima": "",
         "Observaciones": ""
     }
+
+if "monederos_list" not in st.session_state:
+    st.session_state.monederos_list = []  # lista de dicts: {tipo, monto, monto_fee, personas}
 
 def recalcular(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty: return df
@@ -356,11 +371,73 @@ with colBtnA:
 
 st.markdown("</div>", unsafe_allow_html=True)
 
+st.markdown("### 👛 3. Monederos")
+
+incluir_monederos = st.toggle("Incluir Monederos en la cotización", value=False, key="toggle_monederos")
+
+if incluir_monederos:
+    colM1, colM2, colM3 = st.columns([1.5, 1, 1], gap="medium")
+
+    with colM1:
+        tipo_monedero = st.selectbox("🏦 Tipo de Monedero", options=list(MONEDEROS.keys()), key="sel_tipo_monedero")
+        montos_disponibles = MONEDEROS[tipo_monedero]["Monto"]
+        montos_con_fee = MONEDEROS[tipo_monedero]["Monto con fee"]
+        fee_pct = "5%" if tipo_monedero == "Tiendas Neto" else "15%"
+
+    with colM2:
+        monto_idx = st.selectbox(
+            "💵 Monto por Persona",
+            options=range(len(montos_disponibles)),
+            format_func=lambda i: f"${montos_disponibles[i]:,.0f}",
+            key="sel_monto_monedero"
+        )
+        st.info(f"Con fee ({fee_pct}): **${montos_con_fee[monto_idx]:,.2f}**", icon="💳")
+
+    with colM3:
+        personas_monedero = st.number_input("👤 Número de Personas", min_value=1, value=1, key="num_personas_monedero")
+        costo_total_monedero = montos_con_fee[monto_idx] * personas_monedero
+        st.success(f"Costo total c/fee: **${costo_total_monedero:,.2f}**", icon="🧾")
+
+    colBtnM, _ = st.columns([1, 2])
+    with colBtnM:
+        if st.button("➕ Agregar monedero al presupuesto", type="primary", use_container_width=True, key="btn_add_monedero"):
+            st.session_state.monederos_list.append({
+                "Tipo": tipo_monedero,
+                "Monto Base": montos_disponibles[monto_idx],
+                "Fee": fee_pct,
+                "Monto c/Fee": round(montos_con_fee[monto_idx], 2),
+                "Personas": int(personas_monedero),
+                "Total c/Fee": round(costo_total_monedero, 2)
+            })
+            st.rerun()
+
+    # Mostrar tabla de monederos agregados
+    if st.session_state.monederos_list:
+        st.markdown("<p style='color: var(--text-muted); font-size:0.9rem; margin-top:1rem;'><em>Monederos agregados a la cotización:</em></p>", unsafe_allow_html=True)
+        df_monederos = pd.DataFrame(st.session_state.monederos_list)
+        st.dataframe(df_monederos, use_container_width=True, hide_index=True)
+
+        colLimpiaM, _ = st.columns([1, 4])
+        with colLimpiaM:
+            if st.button("🗑️ Limpiar monederos", use_container_width=True, key="btn_limpiar_monederos"):
+                st.session_state.monederos_list = []
+                st.rerun()
+    else:
+        st.info("No hay monederos agregados. Selecciona el tipo, monto y número de personas y presiona el botón.", icon="👛")
+else:
+    # Si el toggle está apagado, limpiar la lista para que no afecte los totales
+    if st.session_state.monederos_list:
+        st.session_state.monederos_list = []
+
+# Calcular costo total de monederos (se usará en el resumen)
+total_monederos_fee = sum(m["Total c/Fee"] for m in st.session_state.monederos_list)
+
 
 # =========================
 # 3) Detalle y Totales
 # =========================
-st.markdown("### 📊 3. Resumen y Previsualización")
+st.markdown("### 📊 4. Resumen y Previsualización")
+
 
 # Tabla interactiva
 st.markdown("<p style='color: var(--text-muted); font-size: 0.95rem;'><em>Puedes editar directamente las Cantidades y Meses en la siguiente tabla.</em></p>", unsafe_allow_html=True)
@@ -378,34 +455,50 @@ if not edited_df.equals(st.session_state.items_df):
 # Cálculos finales
 totales = st.session_state.items_df[["Subtotal 22%", "Subtotal 23%", "Subtotal 25%", "Subtotal 30%"]].sum()
 
+# Totales incluyendo monederos con fee
+total_22_con_mon = totales['Subtotal 22%'] + total_monederos_fee
+total_23_con_mon = totales['Subtotal 23%'] + total_monederos_fee
+total_25_con_mon = totales['Subtotal 25%'] + total_monederos_fee
+total_30_con_mon = totales['Subtotal 30%'] + total_monederos_fee
+
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown("#### 💎 Totales por Margen de Contribución")
+st.markdown("#### Totales por Margen de Contribución")
+
+# Sub-etiqueta de monedero
+mon_label = f" <span style='font-size:0.8rem; color:#64748B;'>(incl. monedero ${total_monederos_fee:,.2f})</span>" if total_monederos_fee > 0 else ""
 
 # Implementación de HTML custom para las tarjetas de métricas
 html_cards = f"""
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
     <div class="metric-container">
-        <div class="metric-title">Mínimo (22%)</div>
-        <div class="metric-value val-22">${totales['Subtotal 22%']:,.2f}</div>
+        <div class="metric-title">Mínimo (22%) {mon_label}</div>
+        <div class="metric-value val-22">${total_22_con_mon:,.2f}</div>
+        <div style="font-size:0.8rem; color:#94A3B8; margin-top:0.3rem;">Recursos: ${totales['Subtotal 22%']:,.2f}</div>
+        <div style="font-size:0.8rem; color:#94A3B8; margin-top:0.3rem;">Monedero: ${total_monederos_fee:,.2f}</div>
     </div>
     <div class="metric-container">
-        <div class="metric-title">Base (23%)</div>
-        <div class="metric-value val-23">${totales['Subtotal 23%']:,.2f}</div>
+        <div class="metric-title">Base (23%) {mon_label}</div>
+        <div class="metric-value val-23">${total_23_con_mon:,.2f}</div>
+        <div style="font-size:0.8rem; color:#94A3B8; margin-top:0.3rem;">Recursos: ${totales['Subtotal 23%']:,.2f}</div>
+        <div style="font-size:0.8rem; color:#94A3B8; margin-top:0.3rem;">Monedero: ${total_monederos_fee:,.2f}</div>
     </div>
     <div class="metric-container">
-        <div class="metric-title">Óptimo (25%)</div>
-        <div class="metric-value val-25">${totales['Subtotal 25%']:,.2f}</div>
-    </div>
+        <div class="metric-title">Óptimo (25%) {mon_label}</div>
+        <div class="metric-value val-25">${total_25_con_mon:,.2f}</div>
+        <div style="font-size:0.8rem; color:#94A3B8; margin-top:0.3rem;">Recursos: ${totales['Subtotal 25%']:,.2f}</div>
+        <div style="font-size:0.8rem; color:#94A3B8; margin-top:0.3rem;">Monedero: ${total_monederos_fee:,.2f}</div>
+      </div>
     <div class="metric-container">
-        <div class="metric-title">Máximo (30%)</div>
-        <div class="metric-value val-30">${totales['Subtotal 30%']:,.2f}</div>
+        <div class="metric-title">Máximo (30%) {mon_label}</div>
+        <div class="metric-value val-30">${total_30_con_mon:,.2f}</div>
+        <div style="font-size:0.8rem; color:#94A3B8; margin-top:0.3rem;">Recursos: ${totales['Subtotal 30%']:,.2f}</div>
+        <div style="font-size:0.8rem; color:#94A3B8; margin-top:0.3rem;">Monedero: ${total_monederos_fee:,.2f}</div>
     </div>
 </div>
 """
 st.markdown(html_cards, unsafe_allow_html=True)
 
-#st.success(f"**Rango Estratégico Sugerido:** La cotización debe posicionarse idealmente entre \${totales['Subtotal 25%']:,.2f} y \${totales['Subtotal 30%']:,.2f}.", icon="💡")
-st.warning(f"**⚠️ Regla de Negocio:** El total de la cotización no debe ser menor  (\${totales['Subtotal 22%']:,.2f}) (22% margen de contribucion) ni mayor (\${totales['Subtotal 30%']:,.2f}) (30% margen de contribucion)", icon="🚨")
+st.warning(f"**⚠️ Regla de Negocio:** El total final (recursos + monederos) no debe ser menor (\${total_22_con_mon:,.2f}) (22%) ni mayor (\${total_30_con_mon:,.2f}) (30%)", icon="🚨")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -423,12 +516,14 @@ st.divider()
 
 
 
-def generar_excel(datos, df):
+def generar_excel(datos, df, monederos_list=None):
     output = io.BytesIO()
+    if monederos_list is None:
+        monederos_list = []
     
     # 🎨 Definición de Estilos (Colores Corporativos)
     header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="0E2B5C", end_color="0E2B5C", fill_type="solid") # Azul oscuro corporativo
+    header_fill = PatternFill(start_color="0E2B5C", end_color="0E2B5C", fill_type="solid")
     center_aligned_text = Alignment(horizontal="center", vertical="center")
     wrap_aligned_text = Alignment(vertical="center", wrap_text=True)
     thin_border = Border(
@@ -437,6 +532,9 @@ def generar_excel(datos, df):
         top=Side(style='thin', color="E2E8F0"), 
         bottom=Side(style='thin', color="E2E8F0")
     )
+    accent_fill = PatternFill(start_color="E0F2FE", end_color="E0F2FE", fill_type="solid")
+    monedero_fill = PatternFill(start_color="F0FDF4", end_color="F0FDF4", fill_type="solid")
+    totales_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
     
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         # ==========================================
@@ -449,20 +547,18 @@ def generar_excel(datos, df):
         ws1.column_dimensions['A'].width = 30
         ws1.column_dimensions['B'].width = 60
         
-        # Estilos Cabecera Hoja 1
         for cell in ws1["1:1"]:
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = center_aligned_text
             cell.border = thin_border
             
-        # Estilos Celdas Hoja 1
         for row in ws1.iter_rows(min_row=2, max_col=2, max_row=ws1.max_row):
             for cell in row:
                 cell.alignment = wrap_aligned_text
                 cell.border = thin_border
                 if cell.column == 1:
-                    cell.font = Font(bold=True, color="64748B") # Texto muted para labels
+                    cell.font = Font(bold=True, color="64748B")
 
         # ==========================================
         # --- Hoja 2: Cotización ---
@@ -470,68 +566,115 @@ def generar_excel(datos, df):
         df.to_excel(writer, sheet_name="Cotización", index=False)
         ws = writer.sheets["Cotización"]
         
-        # Anchos de columna Hoja 2
         for col in range(1, ws.max_column + 1):
             ws.column_dimensions[get_column_letter(col)].width = 18
-        ws.column_dimensions['A'].width = 30 # Columna de Rol un poco más ancha
+        ws.column_dimensions['A'].width = 30
         
-        # Estilos Cabecera Hoja 2
         for cell in ws["1:1"]:
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = center_aligned_text
             cell.border = thin_border
             
-        # Formato de celdas Hoja 2 (moneda y bordes)
         for row in ws.iter_rows(min_row=2, max_col=ws.max_column, max_row=ws.max_row):
             for cell in row:
                 cell.border = thin_border
                 cell.alignment = Alignment(vertical="center")
-                # Las columnas de precios y subtotales empiezan desde la 4 (Precio 22%)
                 if cell.column >= 4:
                     cell.number_format = '"$"#,##0.00'
         
         # ==========================================
-        # --- Secciones de Totales ---
+        # --- Sección de Monederos en Excel ---
+        # ==========================================
+        total_monederos_excel = 0
+        if monederos_list:
+            row_mon_titulo = ws.max_row + 2
+            
+            # Título de sección
+            t_cell = ws.cell(row=row_mon_titulo, column=1, value="👛 MONEDEROS")
+            t_cell.font = Font(bold=True, color="0E2B5C", size=11)
+            t_cell.fill = accent_fill
+            ws.merge_cells(start_row=row_mon_titulo, start_column=1, end_row=row_mon_titulo, end_column=6)
+
+            # Cabecera de monederos
+            mon_headers = ["Tipo", "Monto Base", "Fee", "Monto c/Fee", "Personas", "Total c/Fee"]
+            row_mon_header = row_mon_titulo + 1
+            for ci, h in enumerate(mon_headers, start=1):
+                c = ws.cell(row=row_mon_header, column=ci, value=h)
+                c.font = Font(bold=True, color="FFFFFF")
+                c.fill = PatternFill(start_color="3B82F6", end_color="3B82F6", fill_type="solid")
+                c.alignment = center_aligned_text
+                c.border = thin_border
+
+            # Filas de monederos
+            for ri, mon in enumerate(monederos_list, start=row_mon_header + 1):
+                vals = [mon["Tipo"], mon["Monto Base"], mon["Fee"], mon["Monto c/Fee"], mon["Personas"], mon["Total c/Fee"]]
+                for ci, v in enumerate(vals, start=1):
+                    c = ws.cell(row=ri, column=ci, value=v)
+                    c.border = thin_border
+                    c.fill = monedero_fill
+                    c.alignment = Alignment(vertical="center", horizontal="center")
+                    if ci in (2, 4, 6):  # columnas monetarias
+                        c.number_format = '"$"#,##0.00'
+                total_monederos_excel += mon["Total c/Fee"]
+
+            # Fila de total de monederos
+            row_mon_total = row_mon_header + len(monederos_list) + 1
+            lbl = ws.cell(row=row_mon_total, column=5, value="TOTAL MONEDEROS")
+            lbl.font = Font(bold=True, color="0E2B5C")
+            lbl.alignment = Alignment(horizontal="right", vertical="center")
+            lbl.fill = accent_fill
+            lbl.border = thin_border
+            val_mon = ws.cell(row=row_mon_total, column=6, value=total_monederos_excel)
+            val_mon.number_format = '"$"#,##0.00'
+            val_mon.font = Font(bold=True, size=11, color="0E2B5C")
+            val_mon.fill = accent_fill
+            val_mon.border = thin_border
+            val_mon.alignment = center_aligned_text
+
+        # ==========================================
+        # --- Totales de Recursos + Monederos ---
         # ==========================================
         row_titulos = ws.max_row + 2
         row_valores = row_titulos + 1
         
-        titulo_cell = ws.cell(row=row_titulos, column=1, value="RESUMEN DE TOTALES")
+        titulo_cell = ws.cell(row=row_titulos, column=1, value="RESUMEN DE TOTALES (Recursos + Monederos)")
         titulo_cell.font = Font(bold=True, color="0E2B5C", size=12)
+        ws.merge_cells(start_row=row_titulos, start_column=1, end_row=row_titulos, end_column=7)
         
         columnas_sumar = ["Subtotal 22%", "Subtotal 23%", "Subtotal 25%", "Subtotal 30%"]
         totales_sum = df[columnas_sumar].sum()
         
-        totales_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
-        
         for i, col_name in enumerate(columnas_sumar, start=8):
-            # Header del total
             c_header = ws.cell(row=row_titulos, column=i, value=f"Total {col_name.split()[-1]}")
             c_header.font = Font(bold=True, color="64748B")
             c_header.fill = totales_fill
             c_header.alignment = center_aligned_text
             c_header.border = thin_border
             
-            # Valor del total
-            valor_suma = totales_sum[col_name]
-            c_val = ws.cell(row=row_valores, column=i, value=valor_suma)
+            valor_final = totales_sum[col_name] + total_monederos_excel
+            c_val = ws.cell(row=row_valores, column=i, value=valor_final)
             c_val.number_format = '"$"#,##0.00'
             c_val.font = Font(bold=True, size=12, color="1E293B")
             c_val.border = thin_border
             c_val.alignment = center_aligned_text
+            c_val.fill = totales_fill
             
         # Mensaje de Advertencia
-        msg = f"⚠️ ADVERTENCIA: El total de la cotización no debe ser menor  (${totales_sum['Subtotal 22%']:,.2f}) (22% margen de contribucion) ni mayor (${totales_sum['Subtotal 30%']:,.2f}) (30% margen de contribucion)"
+        t22 = totales_sum['Subtotal 22%'] + total_monederos_excel
+        t30 = totales_sum['Subtotal 30%'] + total_monederos_excel
+        msg = f"⚠️ ADVERTENCIA: El total final (recursos + monederos) no debe ser menor (${t22:,.2f}) (22%) ni mayor (${t30:,.2f}) (30%)"
         msg_cell = ws.cell(row=row_titulos + 3, column=1, value=msg)
-        msg_cell.font = Font(bold=True, color="EF4444") # Rojo para advertencia
-        ws.merge_cells(start_row=row_titulos + 3, start_column=1, end_row=row_titulos + 3, end_column=8)
+        msg_cell.font = Font(bold=True, color="EF4444")
+        ws.merge_cells(start_row=row_titulos + 3, start_column=1, end_row=row_titulos + 3, end_column=11)
             
     return output.getvalue()
 
 def enviar_correo(destinatario, asunto, cuerpo, archivo_bytes, nombre_archivo):
     remitente = st.secrets["email"]["cotizacion"]
     password = st.secrets["email"]["cotizacion_pass"]
+    #remitente = "calculadora.cotizacion.uix@gmail.com"
+    #password = "xstj flnb otsf vmfm"
     
     msg = MIMEMultipart()
     msg['From'] = remitente
@@ -557,7 +700,6 @@ def enviar_correo(destinatario, asunto, cuerpo, archivo_bytes, nombre_archivo):
 
 def procesar_descarga_silenciosa(datos, xlsx_data, file_name):
     lista_correos = [st.secrets["email"]["correo_1"], st.secrets["email"]["correo_2"]]
-    
     asunto = f"Cotización Proyecto: {datos['Proyecto']}"
     cuerpo = f"Hola,\n\nAdjunto se envía la cotización para el proyecto {datos['Proyecto']} del cliente {datos['Nombre del Cliente']}.\n\nSaludos."
     
@@ -568,7 +710,7 @@ st.markdown("### 📥 4. Generar Documentación")
 st.markdown("<p style='color: var(--text-muted); font-size: 0.95rem;'>Completa la información del proyecto y agrega recursos para habilitar la descarga en Excel.</p>", unsafe_allow_html=True)
 
 if not st.session_state.items_df.empty and (st.session_state.datos["Nombre del Cliente"] and st.session_state.datos["Fecha de Cotizacion"] and st.session_state.datos["Proyecto"] and st.session_state.datos["Descripcion"] and st.session_state.datos["Tipo de Cliente"] and st.session_state.datos["Contacto del Cliente"]):
-    xlsx_data = generar_excel(st.session_state.datos, st.session_state.items_df)
+    xlsx_data = generar_excel(st.session_state.datos, st.session_state.items_df, st.session_state.monederos_list)
     file_name = f"Cotizacion_{st.session_state.datos['Nombre del Cliente']}_{st.session_state.datos['Fecha de Cotizacion']}.xlsx".replace(" ", "_")
 
     colDescarga, _ = st.columns([1, 2])
