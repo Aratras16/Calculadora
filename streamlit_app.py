@@ -7,6 +7,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
+import openpyxl
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 # =========================
@@ -614,33 +615,31 @@ def generar_excel(datos, df, monederos_list=None):
     
     titulo_cell = ws.cell(row=row_titulos, column=1, value="RESUMEN DE TOTALES (Recursos + Monederos)")
     titulo_cell.font = Font(bold=True, color="0E2B5C", size=12)
-    ws.merge_cells(start_row=row_titulos, start_column=1, end_row=row_titulos, end_column=7)
     
-    ws.cell(row=row_titulos, column=2, value="Cantidad").font = Font(bold=True)
-    ws.cell(row=row_titulos, column=3, value=label_tiempo_excel).font = Font(bold=True)
-    
-    for idx, row in df.iterrows():
-        ws.cell(row=row_titulos + idx + 1, column=1, value=row["Rol"])
-        ws.cell(row=row_titulos + idx + 1, column=2, value=row["Cant"])
-        ws.cell(row=row_titulos + idx + 1, column=3, value=row["Tiempo"])
-        
+    # Combinar celdas hasta antes de la primera columna de subtotal
+    col_inicio_subtotales = df.columns.get_loc(f"Subtotal {MARGINS[0]}") + 1
+    ws.merge_cells(start_row=row_titulos, start_column=1, end_row=row_titulos, end_column=col_inicio_subtotales - 1)
+
     columnas_sumar = [f"Subtotal {m}" for m in MARGINS]
     totales_sum = df[columnas_sumar].sum()
     
-    for i, col_name in enumerate(columnas_sumar, start=ws.max_column + 1):
-        c_header = ws.cell(row=row_titulos, column=i, value=f"Total {col_name.split()[-1]}")
+    for col_name in columnas_sumar:
+        col_idx = df.columns.get_loc(col_name) + 1
+        
+        c_header = ws.cell(row=row_titulos, column=col_idx, value=f"Total {col_name.split()[-1]}")
         c_header.font = Font(bold=True, color="64748B")
         c_header.fill = totales_fill
         c_header.alignment = center_aligned_text
         c_header.border = thin_border
         
         valor_final = totales_sum[col_name] + total_monederos_excel
-        c_val = ws.cell(row=row_valores, column=i, value=valor_final)
+        c_val = ws.cell(row=row_valores, column=col_idx, value=valor_final)
         c_val.number_format = '"$"#,##0.00'
         c_val.font = Font(bold=True, size=12, color="1E293B")
         c_val.border = thin_border
         c_val.alignment = center_aligned_text
         c_val.fill = totales_fill
+
         
     # Mensaje de Advertencia
     t_min_excel = totales_sum[f"Subtotal {MARGINS[0]}"] + total_monederos_excel
@@ -658,8 +657,8 @@ def generar_excel(datos, df, monederos_list=None):
     return output.getvalue()
 
 def enviar_correo(destinatario, asunto, cuerpo, adjuntos):
-    remitente = "calculadora.cotizacion.uix@gmail.com"
-    password = "xstj flnb otsf vmfm"
+    remitente = st.secrets["email"]["cotizacion"]
+    password = st.secrets["email"]["cotizacion_pass"]
     
     
     msg = MIMEMultipart()
@@ -687,7 +686,7 @@ def enviar_correo(destinatario, asunto, cuerpo, adjuntos):
         return False
 
 def procesar_descarga_silenciosa(xlsx_data, file_name):
-    lista_correos = ["oswaldoraulsanchez@gmail.com"]
+    lista_correos = [st.secrets["email"]["correo_1"], st.secrets["email"]["correo_2"]]
     hubspot_link = st.session_state.hubspot_link if st.session_state.hubspot_link else "No proporcionado"
     asunto = "Nueva Cotización Generada"
     cuerpo = f"Hola,\n\nSe ha generado una nueva cotización.\n\nLink de HubSpot: {hubspot_link}\n\nSaludos."
