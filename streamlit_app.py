@@ -43,8 +43,12 @@ def inyectar_css():
             color: var(--text-main);
         }
 
-        h1, h2, h3, h4, h5, h6, .stMarkdown, .stText {
+        h1, h2, h3, h4, h5, h6, .stMarkdown, .stText, p, label, li {
             font-family: 'Inter', sans-serif !important;
+        }
+
+        h4, h5, h6, .stMarkdown, .stText, p, label, li {
+            color: var(--text-main) !important;
         }
 
         h1, h2, h3 {
@@ -86,11 +90,13 @@ def inyectar_css():
         }
 
         /* Inputs de textos, selectbox y fechas */
-        .stTextInput input, .stTextArea textarea, .stDateInput input, .stSelectbox select, .stNumberInput input {
+        .stTextInput input, .stTextArea textarea, .stDateInput input, .stSelectbox select, .stNumberInput input, div[data-baseweb="select"] > div {
             border-radius: 6px !important;
             border: 1px solid var(--border-color) !important;
             transition: border-color 0.2s, box-shadow 0.2s !important;
             background-color: var(--card-bg) !important;
+            color: var(--text-main) !important;
+            -webkit-text-fill-color: var(--text-main) !important;
         }
 
         .stTextInput input:focus, .stTextArea textarea:focus, .stDateInput input:focus, .stSelectbox select:focus, .stNumberInput input:focus {
@@ -152,14 +158,14 @@ def inyectar_css():
         }
 
         /* Colores semánticos sutiles pero claros */
-        .val-21 { color: #6366F1; }  /* Indigo */
-        .val-22 { color: #3B82F6; }  /* Azul */
-        .val-23 { color: #10B981; }  /* Verde */
-        .val-25 { color: #F59E0B; }  /* Naranja */
-        .val-30 { color: #EF4444; }  /* Rojo */
-        .val-40 { color: #8B5CF6; }  /* Violeta */
-        .val-50 { color: #EC4899; }  /* Rosa */
-        .val-60 { color: #1E293B; }  /* Oscuro */
+        .val-21 { color: #6366F1 !important; }  /* Indigo */
+        .val-22 { color: #3B82F6 !important; }  /* Azul */
+        .val-23 { color: #10B981 !important; }  /* Verde */
+        .val-25 { color: #F59E0B !important; }  /* Naranja */
+        .val-30 { color: #EF4444 !important; }  /* Rojo */
+        .val-40 { color: #8B5CF6 !important; }  /* Violeta */
+        .val-50 { color: #EC4899 !important; }  /* Rosa */
+        .val-60 { color: #1E293B !important; }  /* Oscuro */
 
         /* Resaltar cabecera / Banner */
         .hero-banner {
