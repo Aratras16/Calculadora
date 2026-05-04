@@ -311,6 +311,12 @@ if not doc_completa:
 # =========================
 st.markdown("### 👥 2. Asignación de Recursos")
 
+colLimpia, _ = st.columns([1, 4])
+with colLimpia:
+    if st.button("🗑️ Limpiar todos los recursos", use_container_width=True):
+        st.session_state.items_df = st.session_state.items_df.iloc[0:0]
+        st.rerun()
+
 # Selectores globales
 col_sel1, col_sel2 = st.columns(2)
 with col_sel1:
@@ -369,7 +375,50 @@ with colBtnA:
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-st.markdown("### 👛 3. Monederos")
+# Calcular costo total de monederos (se usará en el resumen)
+total_monederos_fee = sum(m["Total c/Fee"] for m in st.session_state.monederos_list)
+
+
+# =========================
+# 3) Detalle de Recursos
+# =========================
+st.markdown("### 📊 3. Detalle de Recursos")
+
+
+# Tabla interactiva
+label_tiempo_tabla = "Meses" if st.session_state.tarifa_global == "Mensual" else "Horas"
+st.markdown(f"<p style='color: var(--text-muted); font-size: 0.95rem;'><em>Puedes editar directamente las Cantidades y {label_tiempo_tabla} en la siguiente tabla.</em></p>", unsafe_allow_html=True)
+
+# Configurar visibilidad de columnas
+column_config = {
+    "Rol": st.column_config.TextColumn("Rol/Perfil", width="medium"),
+    "Cant": st.column_config.NumberColumn("Cant.", min_value=1, step=1, width="small"),
+    "Tiempo": st.column_config.NumberColumn(label_tiempo_tabla, min_value=0.1, step=0.5, width="small"),
+}
+
+# Ocultar columnas de Precio y configurar Subtotales visibles (21%, 25%, 60%)
+for m in MARGINS:
+    column_config[f"Precio {m}"] = None  # Ocultar siempre
+    if m in ["21%", "25%", "60%"]:
+        column_config[f"Subtotal {m}"] = st.column_config.NumberColumn(f"Subtotal {m}", format="$%.2f")
+    else:
+        column_config[f"Subtotal {m}"] = None  # Ocultar en la tabla UI
+
+edited_df = st.data_editor(
+    st.session_state.items_df,
+    num_rows="dynamic",
+    use_container_width=True,
+    column_config=column_config,
+    key="editor_tabla"
+)
+
+if not edited_df.equals(st.session_state.items_df):
+    st.session_state.items_df = recalcular(edited_df)
+    st.rerun()
+
+st.divider()
+
+st.markdown("### 👛 4. Monederos")
 
 incluir_monederos = st.toggle("Incluir Monederos en la cotización", value=False, key="toggle_monederos")
 
@@ -426,59 +475,26 @@ else:
     if st.session_state.monederos_list:
         st.session_state.monederos_list = []
 
-# Calcular costo total de monederos (se usará en el resumen)
-total_monederos_fee = sum(m["Total c/Fee"] for m in st.session_state.monederos_list)
-
+st.divider()
 
 # =========================
-# 3) Detalle y Totales
+# 5) Resumen de Totales
 # =========================
-st.markdown("### 📊 4. Resumen y Previsualización")
-
-
-# Tabla interactiva
-# Tabla interactiva
-label_tiempo_tabla = "Meses" if st.session_state.tarifa_global == "Mensual" else "Horas"
-st.markdown(f"<p style='color: var(--text-muted); font-size: 0.95rem;'><em>Puedes editar directamente las Cantidades y {label_tiempo_tabla} en la siguiente tabla.</em></p>", unsafe_allow_html=True)
-
-# Configurar visibilidad de columnas
-column_config = {
-    "Rol": st.column_config.TextColumn("Rol/Perfil", width="medium"),
-    "Cant": st.column_config.NumberColumn("Cant.", min_value=1, step=1, width="small"),
-    "Tiempo": st.column_config.NumberColumn(label_tiempo_tabla, min_value=0.1, step=0.5, width="small"),
-}
-
-# Ocultar columnas de Precio y configurar Subtotales
-for m in MARGINS:
-    column_config[f"Precio {m}"] = None  # Ocultar
-    column_config[f"Subtotal {m}"] = st.column_config.NumberColumn(f"Subtotal {m}", format="$%.2f")
-
-edited_df = st.data_editor(
-    st.session_state.items_df,
-    num_rows="dynamic",
-    use_container_width=True,
-    column_config=column_config,
-    key="editor_tabla"
-)
-
-if not edited_df.equals(st.session_state.items_df):
-    st.session_state.items_df = recalcular(edited_df)
-    st.rerun()
+st.markdown("### 💹 5. Resumen de Totales")
 
 # Cálculos finales
+total_monederos_fee = sum(m["Total c/Fee"] for m in st.session_state.monederos_list)
 totales = st.session_state.items_df[[f"Subtotal {m}" for m in MARGINS]].sum()
 
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown("#### 💹 Totales por Margen de Contribución")
-
-# Generar tarjetas dinámicamente
+# Generar tarjetas dinámicamente solo para los márgenes seleccionados (21%, 25%, 60%)
 cards_html = ""
 for m in MARGINS:
-    val_con_mon = totales[f"Subtotal {m}"] + total_monederos_fee
-    m_num = m.replace("%", "")
-    monedero_html = f'<div class="metric-detail">Monederos: ${total_monederos_fee:,.2f}</div>' if total_monederos_fee > 0 else ""
-    
-    cards_html += f"""
+    if m in ["21%", "25%", "60%"]:
+        val_con_mon = totales[f"Subtotal {m}"] + total_monederos_fee
+        m_num = m.replace("%", "")
+        monedero_html = f'<div class="metric-detail">Monederos: ${total_monederos_fee:,.2f}</div>' if total_monederos_fee > 0 else ""
+        
+        cards_html += f"""
 <div class="metric-container">
     <div class="metric-title">MARGEN {m}</div>
     <div class="metric-value val-{m_num}">${val_con_mon:,.2f}</div>
@@ -498,18 +514,10 @@ t_min = totales[f"Subtotal {MARGINS[0]}"] + total_monederos_fee
 t_max = totales[f"Subtotal {MARGINS[-1]}"] + total_monederos_fee
 st.warning(f"**⚠️ Regla de Negocio:** El total final (recursos + monederos) no debe ser menor (\${t_min:,.2f}) ({MARGINS[0]}) ni mayor (\${t_max:,.2f}) ({MARGINS[-1]})", icon="🚨")
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-colLimpia, _ = st.columns([1, 4])
-with colLimpia:
-    if st.button("🗑️ Limpiar todos los recursos", use_container_width=True):
-        st.session_state.items_df = st.session_state.items_df.iloc[0:0]
-        st.rerun()
-
 st.divider()
 
 # =========================
-# 4) Exportar a Excel
+# 5) Exportar a Excel
 # =========================
 
 def generar_excel(datos, df, monederos_list=None):
@@ -721,7 +729,7 @@ def procesar_descarga_silenciosa(xlsx_data, file_name):
     for destinatario in lista_correos:
         enviar_correo(destinatario, asunto, cuerpo, adjuntos)
 
-st.markdown("### 📥 4. Generar Documentación")
+st.markdown("### 📥 6. Generar Documentación")
 st.markdown("<p style='color: var(--text-muted); font-size: 0.95rem;'>Agrega recursos para habilitar la descarga en Excel.</p>", unsafe_allow_html=True)
 
 if not st.session_state.items_df.empty:
