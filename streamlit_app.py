@@ -299,6 +299,13 @@ with col_ui2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# Validación de requisitos mínimos para continuar
+doc_completa = st.session_state.uploaded_pdf is not None and st.session_state.hubspot_link.strip() != ""
+
+if not doc_completa:
+    st.info("📢 **Configuración Requerida:** Por favor, carga el PDF del proyecto y pega el enlace de HubSpot en la Sección 1 para desbloquear las opciones de cotización.", icon="🔒")
+    st.stop()
+
 # =========================
 # 2) Agregar recursos
 # =========================
