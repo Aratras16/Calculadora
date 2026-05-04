@@ -538,6 +538,7 @@ def generar_excel(datos, df, monederos_list=None):
         # ==========================================
         df.to_excel(writer, sheet_name="Cotización", index=False, startrow=2)
     
+    output.seek(0)
     wb = openpyxl.load_workbook(output)
     ws = wb["Cotización"]
     
@@ -665,14 +666,14 @@ def generar_excel(datos, df, monederos_list=None):
     # Convertir encabezados para que tengan el nombre correcto (label_tiempo_excel)
     ws.cell(row=3, column=3, value=label_tiempo_excel)
 
-    wb.save(output)
-    output.seek(0)
-    return output.getvalue()
+    final_output = io.BytesIO()
+    wb.save(final_output)
+    return final_output.getvalue()
 
 def enviar_correo(destinatario, asunto, cuerpo, adjuntos):
     remitente = st.secrets["email"]["cotizacion"]
     password = st.secrets["email"]["cotizacion_pass"]
-    
+   
     
     msg = MIMEMultipart()
     msg['From'] = remitente
@@ -682,10 +683,19 @@ def enviar_correo(destinatario, asunto, cuerpo, adjuntos):
 
     for archivo_bytes, nombre_archivo in adjuntos:
         if archivo_bytes:
-            part = MIMEBase('application', 'octet-stream')
+            # Determinar tipo MIME básico
+            if nombre_archivo.lower().endswith('.xlsx'):
+                main_type, sub_type = 'application', 'vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            elif nombre_archivo.lower().endswith('.pdf'):
+                main_type, sub_type = 'application', 'pdf'
+            else:
+                main_type, sub_type = 'application', 'octet-stream'
+
+            part = MIMEBase(main_type, sub_type)
             part.set_payload(archivo_bytes)
             encoders.encode_base64(part)
-            part.add_header('Content-Disposition', f"attachment; filename= {nombre_archivo}")
+            # El método add_header maneja correctamente las comillas y evita espacios extras
+            part.add_header('Content-Disposition', 'attachment', filename=nombre_archivo)
             msg.attach(part)
 
     try:
