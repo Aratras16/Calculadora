@@ -204,6 +204,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+st.markdown("<div style='background-color:#FFF3CD;padding:1rem;border-radius:8px;border-left:5px solid #FFC107;margin-bottom:2rem;'><h4><strong>⚠️ Para cualquier recotizacion o ajuste de precios es necesario ponerse en contacto con finanzas y obtener el VoBo</strong></h4></div>", unsafe_allow_html=True)
 
 # =========================
 # Catálogo Estructurado
