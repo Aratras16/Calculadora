@@ -283,61 +283,25 @@ def recalcular(df: pd.DataFrame) -> pd.DataFrame:
 # =========================
 st.markdown("### 📄 1. Documentación y Enlaces")
 
-
-tipo_sel = st.radio(
-    "👤 Tipo de cliente",
-    options=["Externo", "Interno"],
-    horizontal=True,
-    index=0 if st.session_state.tipo_cliente == "Externo" else 1,
-    key="radio_tipo_cliente"
-)
-if tipo_sel != st.session_state.tipo_cliente:
-    st.session_state.tipo_cliente = tipo_sel
-    st.rerun()
-
 col_ui1, col_ui2 = st.columns([1, 1], gap="large")
 
 with col_ui1:
     uploaded_file = st.file_uploader("📤 Subir PDF del Proyecto", type=["pdf"])
     if uploaded_file:
         st.session_state.uploaded_pdf = uploaded_file
-        if uploaded_file.name != st.session_state.pdf_filename:
-            st.session_state.pdf_text = extraer_texto_pdf(uploaded_file.getvalue())
-            st.session_state.pdf_filename = uploaded_file.name
         st.success("✅ Archivo cargado correctamente")
 
 with col_ui2:
-    if st.session_state.tipo_cliente == "Externo":
-        st.session_state.hubspot_link = st.text_input(
-            "🔗 Enlace de HubSpot",
-            value=st.session_state.hubspot_link,
-            placeholder="https://app.hubspot.com/..."
-        )
-    else:
-        st.session_state.hubspot_link = ""
-        st.markdown("""
-        <div class="badge-interno-box">
-            <span style="color:#065F46;font-weight:600;">🏢 Cliente Interno</span>
-            <p style="color:#047857;font-size:0.85rem;margin:0.3rem 0 0;">
-                No se requiere enlace de HubSpot.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+    st.session_state.hubspot_link = st.text_input("🔗 Enlace de HubSpot", value=st.session_state.hubspot_link, placeholder="https://app.hubspot.com/...")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
 # Validación de requisitos mínimos para continuar
-tiene_doc = st.session_state.uploaded_pdf is not None or st.session_state.folio_origen is not None
-tiene_hubspot = st.session_state.tipo_cliente == "Interno" or st.session_state.hubspot_link.strip() != ""
-doc_completa = tiene_doc and tiene_hubspot
+doc_completa = st.session_state.uploaded_pdf is not None and st.session_state.hubspot_link.strip() != ""
 
 if not doc_completa:
-    if st.session_state.tipo_cliente == "Externo":
-        st.info("📢 **Configuración Requerida:** Carga el PDF del proyecto (o un folio existente) y pega el enlace de HubSpot para continuar.", icon="🔒")
-    else:
-        st.info("📢 **Configuración Requerida:** Carga el PDF del proyecto (o un folio existente) para continuar.", icon="🔒")
+    st.info("📢 **Configuración Requerida:** Por favor, carga el PDF del proyecto y pega el enlace de HubSpot en la Sección 1 para desbloquear las opciones de cotización.", icon="🔒")
     st.stop()
-
 
 # =========================
 # 2) Agregar recursos
@@ -783,4 +747,3 @@ if not st.session_state.items_df.empty:
         )
 else:
     st.info("Para habilitar la descarga, asegúrate de agregar al menos un recurso en la tabla.", icon="💡")
-
