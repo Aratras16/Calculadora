@@ -808,8 +808,8 @@ def mostrar_login():
             st.session_state.modo_reset = False
 
         if not st.session_state.modo_reset:
-            email = st.text_input("Correo electrónico", placeholder="usuario@elektra.com.mx", key="login_email")
-            password = st.text_input("Contraseña", type="password", key="login_password")
+            email = st.text_input("Correo electrónico", placeholder=" Ingresa tu correo (usuario@elektra.com.mx)", key="login_email")
+            password = st.text_input("Contraseña",placeholder = "Ingresa tu contraseña(número de empleado)", type="password", key="login_password")
             if st.button("Iniciar sesión", type="primary", use_container_width=True, key="btn_login"):
                 if not email or not password:
                     st.error("Ingresa tu correo y contraseña.")
