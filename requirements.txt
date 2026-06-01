@@ -4,3 +4,4 @@ openpyxl
 google-genai
 pypdf
 supabase
+streamlit_cookies_controller
