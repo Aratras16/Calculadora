@@ -39,6 +39,8 @@ def _generar_folio():
     result = _get_supabase().rpc("generar_folio").execute()
     return result.data
 
+_LIMITE_PDF = 50 * 1024 * 1024  # 50 MB
+
 class _PDFProxy:
     """Emula UploadedFile de Streamlit para PDFs recuperados de Storage."""
     def __init__(self, data: bytes, name: str):
@@ -46,6 +48,45 @@ class _PDFProxy:
         self.name = name
     def getvalue(self) -> bytes:
         return self._data
+
+def _comprimir_pdf(pdf_bytes: bytes) -> bytes:
+    """
+    Comprime el PDF en dos pasos:
+      Paso 1 (rápido): optimiza streams, imágenes y fuentes con fitz.
+      Paso 2 (si sigue >50 MB): re-renderiza cada página como JPEG 120 DPI.
+    """
+    import fitz
+
+    # Paso 1 — optimización lossless
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        buf = io.BytesIO()
+        doc.save(buf, garbage=4, deflate=True, deflate_images=True, deflate_fonts=True, clean=True)
+        doc.close()
+        resultado = buf.getvalue()
+    except Exception:
+        resultado = pdf_bytes
+
+    if len(resultado) <= _LIMITE_PDF:
+        return resultado
+
+    # Paso 2 — re-renderizado JPEG por página (garantiza reducción de tamaño)
+    try:
+        src = fitz.open(stream=resultado, filetype="pdf")
+        dst = fitz.open()
+        for page in src:
+            mat = fitz.Matrix(120 / 72, 120 / 72)
+            pix = page.get_pixmap(matrix=mat, alpha=False)
+            img_bytes = pix.tobytes("jpg")
+            nueva = dst.new_page(width=page.rect.width, height=page.rect.height)
+            nueva.insert_image(nueva.rect, stream=img_bytes)
+        buf2 = io.BytesIO()
+        dst.save(buf2, garbage=4, deflate=True)
+        src.close()
+        dst.close()
+        return buf2.getvalue()
+    except Exception:
+        return resultado
 
 def _subir_pdf_storage(pdf_bytes: bytes, nombre: str) -> str:
     import unicodedata, re
@@ -76,8 +117,16 @@ def _guardar_en_db(folio, folio_origen=None):
     pdf_path = ""
     if st.session_state.get("uploaded_pdf") is not None:
         try:
+            pdf_val = st.session_state.uploaded_pdf.getvalue()
+            if len(pdf_val) > _LIMITE_PDF:
+                mb = len(pdf_val) / (1024 * 1024)
+                st.error(
+                    f"❌ El PDF ({mb:.1f} MB) supera el límite de 50 MB y no puede subirse. "
+                    "Vuelve a cargar el archivo con menor resolución de imágenes."
+                )
+                st.stop()
             safe_name = f"{folio}_{st.session_state.pdf_filename}"
-            pdf_path = _subir_pdf_storage(st.session_state.uploaded_pdf.getvalue(), safe_name)
+            pdf_path = _subir_pdf_storage(pdf_val, safe_name)
         except Exception as e:
             st.error(f"❌ Error al subir PDF — {type(e).__name__}: {e}")
             st.stop()
@@ -808,8 +857,8 @@ def mostrar_login():
             st.session_state.modo_reset = False
 
         if not st.session_state.modo_reset:
-            email = st.text_input("Correo electrónico", placeholder=" Ingresa tu correo (usuario@elektra.com.mx)", key="login_email")
-            password = st.text_input("Contraseña",placeholder = "Ingresa tu contraseña(número de empleado)", type="password", key="login_password")
+            email = st.text_input("Correo electrónico", placeholder="Ingresa tu correo (usuario@elektra.com.mx)", key="login_email")
+            password = st.text_input("Contraseña", placeholder="Ingresa tu contraseña (numero de empleado)", type="password", key="login_password")
             if st.button("Iniciar sesión", type="primary", use_container_width=True, key="btn_login"):
                 if not email or not password:
                     st.error("Ingresa tu correo y contraseña.")
@@ -1459,11 +1508,33 @@ if not st.session_state.folio_origen:
     with col_ui1:
         uploaded_file = st.file_uploader("📤 Subir PDF del Proyecto", type=["pdf"])
         if uploaded_file:
-            st.session_state.uploaded_pdf = uploaded_file
             if uploaded_file.name != st.session_state.pdf_filename:
-                st.session_state.pdf_text = extraer_texto_pdf(uploaded_file.getvalue())
+                pdf_bytes = uploaded_file.getvalue()
+                mb_orig = len(pdf_bytes) / (1024 * 1024)
+                if len(pdf_bytes) > _LIMITE_PDF:
+                    _aviso = st.info(
+                        f"⏳ PDF de {mb_orig:.1f} MB detectado — comprimiendo, por favor espera…",
+                        icon="🗜️",
+                    )
+                    with st.spinner("Comprimiendo PDF…"):
+                        pdf_comprimido = _comprimir_pdf(pdf_bytes)
+                    _aviso.empty()
+                    mb_comp = len(pdf_comprimido) / (1024 * 1024)
+                    st.session_state.uploaded_pdf = _PDFProxy(pdf_comprimido, uploaded_file.name)
+                    if len(pdf_comprimido) <= _LIMITE_PDF:
+                        st.success(f"✅ PDF comprimido: {mb_orig:.1f} MB → {mb_comp:.1f} MB")
+                    else:
+                        st.warning(
+                            f"⚠️ El PDF se redujo a {mb_comp:.1f} MB pero aún supera los 50 MB. "
+                            "Intenta exportar el PDF con menor resolución de imágenes."
+                        )
+                else:
+                    st.session_state.uploaded_pdf = uploaded_file
+                    st.success("✅ Archivo cargado correctamente")
+                st.session_state.pdf_text = extraer_texto_pdf(st.session_state.uploaded_pdf.getvalue())
                 st.session_state.pdf_filename = uploaded_file.name
-            st.success("✅ Archivo cargado correctamente")
+            else:
+                st.success("✅ Archivo cargado correctamente")
 
     with col_ui2:
         if st.session_state.tipo_cliente == "Externo":
