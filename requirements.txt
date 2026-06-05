@@ -3,6 +3,6 @@ pandas
 openpyxl
 google-genai
 pypdf
-pymudf
+pymupdf
 supabase
 streamlit_cookies_controller
