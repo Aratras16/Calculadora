@@ -1765,7 +1765,7 @@ t_min = totales[f"Subtotal {MARGINS[0]}"] + total_monederos_fee
 t_max = totales[f"Subtotal {MARGINS[-1]}"] + total_monederos_fee
 st.warning(f"**⚠️ Regla de Negocio:** El total final (recursos + monederos) no debe ser menor (\${t_min:,.2f}) ({MARGINS[0]}) ni mayor (\${t_max:,.2f}) ({MARGINS[-1]})", icon="🚨")
 st.error(
-    "**🚨 IMPORTANTE: VIÁTICOS (VUELOS Y HOSPEDAJE)**\n\n"
+    "**IMPORTANTE: VIÁTICOS (VUELOS Y HOSPEDAJE)**\n\n"
     "Para vuelos y hospedaje, **es obligatorio contactar al administrador de la unidad de negocio** "
     "para incluirlos en la cotización.\n\n"
     "Si no se cotizan y se llegan a necesitar, **deberán cobrarse al cliente "
